@@ -2,9 +2,6 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
-let responseListener = {};
-let notificationListener = {};
-
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -13,25 +10,11 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// ENVOI DES NOTIFICATIONS VIA SCHEDULER
-async function schedulePushNotification(data) {
-  const trigger = Math.round(
-    (data.date - new Date(new Date().setSeconds(0)).getTime() - 60000 * 5) /
-      1000
-  );
-
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: data.name,
-      body: `Here is the notification body ${new Date(data.date)}`,
-      buttonTitle: "voir l'événement",
-      data: { data: data.id },
-    },
-    trigger: {
-      seconds: trigger,
-    },
-  });
-}
+let state = {
+  sent: {},
+  received: {},
+  clicked: {},
+};
 
 // CONFIGURATION DES NOTIFICATIONS
 async function registerForPushNotificationsAsync() {
@@ -49,7 +32,6 @@ async function registerForPushNotificationsAsync() {
       return;
     }
     token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log(token);
   } else {
     alert("Must use physical device for Push Notifications");
   }
@@ -65,33 +47,53 @@ async function registerForPushNotificationsAsync() {
   return token;
 }
 
-// INITIALISATION D'UNE NOTIFICATION (FONCTION UTILISÉE DANS LE COMPOSANT NotificationScheduler)
-export const initNotifications = (datas) => {
+export const initNotifications = async (type, data, setNotification) => {
+  state = {}
+
   registerForPushNotificationsAsync();
 
-  // NOTIFICATION EST CREEE POUR CHAQUE DATA
-  datas.map(async (data) => {
-    await schedulePushNotification(data);
-  });
+  const options = [
+    {
+      type: "event",
+      content: {
+        title: data.name,
+        body: `Here is the notification n°${data.id}`,
+        buttonTitle: "voir l'événement",
+        data,
+      },
+      trigger: { seconds: 3 },
+    },
+  ];
 
-  // EVENEMENT RECEPTION DE LA NOTIFICATION PAR L'UTILISATEUR
-  notificationListener.current = Notifications.addNotificationReceivedListener(
-    (notification) => {
-      console.log("NOTIFICATION RECUE =>", notification);
-    }
-  );
+  const currentOptions = options.find((options) => options.type === type);
 
-  // EVENEMENT APPUI SUR LA NOTIFICATION PAR L'UTILISATEUR
-  responseListener.current =
-    Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log("L'UTILISATEUR APPUIE SUR LA NOTIF =>", response);
-    });
-
-  // SUPPRESSION ABONNEMENT AUX NOTIFICATIONS ENVOYEES
-  return () => {
-    Notifications.removeNotificationSubscription(notificationListener.current);
-    Notifications.removeNotificationSubscription(responseListener.current);
+  // ENVOI DES NOTIFICATIONS VIA SCHEDULER
+  await Notifications.scheduleNotificationAsync(currentOptions);
+  state = {
+    ...state,
+    sent: { message: "Notification planifiée", id: data.id },
   };
+  setNotification({...state});
 };
 
-/* Je n'ai pas réussi à implméneter des boutons sur la notif avec expo. Ils parlent beaucoup de IOS mais pas vraiment d'android. Donc pour le moment, je dispose des événements réception et appui sur la notification */
+export const notificationsReceivedEvents = (setNotification) => {
+  // EVENEMENT RECEPTION DE LA NOTIFICATION PAR L'UTILISATEUR
+  Notifications.addNotificationReceivedListener((notification) => {
+    state = {
+      ...state,
+      received: { ...notification, message: "Notification reçue"},
+    };
+    setNotification({...state});
+  });
+};
+
+export const notificationsClickedEvents = (setNotification) => {
+  // EVENEMENT APPUI SUR LA NOTIFICATION PAR L'UTILISATEUR
+  Notifications.addNotificationResponseReceivedListener((response) => {
+    state = {
+      ...state,
+      clicked: { ...response, message: "Notification cliquée"},
+    };
+    setNotification({...state});
+  });
+};

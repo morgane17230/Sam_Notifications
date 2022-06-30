@@ -1,15 +1,18 @@
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
+import { NativeBaseProvider, View } from "native-base";
 
-import NotificationScheduler from "./components/NotificationScheduler";
+import EventsNotifications from "./components/EventsNotifications";
 
 export default function App() {
 
   return (
+    <NativeBaseProvider>
     <View style={styles.container}>
-      <NotificationScheduler />
+      <EventsNotifications />
       <StatusBar style="auto" />
     </View>
+    </NativeBaseProvider>
   );
 }
 
@@ -21,4 +24,3 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
-
